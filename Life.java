@@ -1,56 +1,6 @@
 import java.util.ArrayList;
-import java.util.List;
-import java.util.TreeSet;
 
 public class Life implements ILife {
-
-  // Eigene Klasse, die eine Zellposition repräsentiert.
-  // Zellpositionen, die anschließend in der Menge der lebenden
-  // Zellen gespeichert sind, geben den Zustand des Spiels wider.
-  private class Cell implements Comparable<Cell> {
-
-    private int x, y;
-
-    public Cell(int x, int y) {
-      this.x = x;
-      this.y = y;
-    }
-
-    // Um eine effiziente Suche in größeren Zellenhaufen zu ermöglichen,
-    // sollte eine Ordnung/Sortierung für Zellen existieren
-    // Hier ist es einfach die Position auf dem Spielfeld, die die Ordnung bestimmt
-
-    @Override
-    public int compareTo(Cell o) {
-      if (x < o.x) return -1;
-      if (x > o.x) return 1;
-      if (y < o.y) return -1;
-      if (y > o.y) return 1;
-      return 0;
-    }
-
-    // Die Gleichheit bei der Sortierung muss auch in der equals-Methode nachgezogen
-    // werden. Standard ist hier, dass Objekte nur gleich sind, wenn sie identisch sind.
-
-    @Override
-    public boolean equals(Object obj) {
-      if ( obj == null ) return false;
-      if ( obj == this ) return true;
-      if ( !(obj instanceof Cell) ) return false;
-      Cell that = (Cell) obj;
-      return  this.x == that.x
-              && this.y == that.y;
-    }
-
-    // Gleiche Objekte müssen den gleichen Hashcode liefern
-
-    @Override
-    public int hashCode()
-    {
-      return (x*100) + y;
-    }
-
-  }
 
 
   public static void main(String[] args) {
@@ -64,7 +14,8 @@ public class Life implements ILife {
 
 
   // Die lebenden Zellen werden hier nicht in einer Matrix, sondern in einem Baum gespeichert.
-  private TreeSet<Cell> livingCells = new TreeSet<>();
+  private ArrayList<String> livingCells = new ArrayList<>();
+  private int maxWidth = 0;
 
   public Life() {
     nukeAll();
@@ -88,22 +39,39 @@ public class Life implements ILife {
   // ist sichergestellt, dass eine Zellposition nicht doppelt auftaucht
   @Override
   public void setAlive(int x, int y) {
-    Cell c = new Cell(x, y);
-    livingCells.add(c);
+    setChar(x, y, '*');
   }
+
+  private void setChar(int x, int y, char c) {
+    while (y>= livingCells.size())
+      livingCells.add("");
+    String line = livingCells.get(y);
+    while (x>=line.length())
+      line = line + " ";
+    livingCells.set(y, replaceChar(line, c, x));
+    if (x >= maxWidth)
+      maxWidth = x+1;
+  }
+
+  private String replaceChar(String str, char ch, int position) {
+    String temp = str.substring(0, position) + ch + str.substring(position+1);
+    return temp;
+  }
+
 
   // Sterbende Zelle -> Entfernen aus dem Baum
   @Override
   public void setDead(int x, int y) {
-    Cell c = new Cell(x, y);
-    livingCells.remove(c);
+    setChar(x, y, ' ');
   }
 
   // Prüfen ob lebend -> In Baum enthalten?
   @Override
   public boolean isAlive(int x, int y) {
-    Cell c = new Cell(x, y);
-    return livingCells.contains(c);
+    if (y<0 || y >= livingCells.size()) return false;
+    String line = livingCells.get(y);
+    if (x<0 || x >= line.length()) return false;
+    return line.charAt(x) == '*';
   }
 
   // Für eine neue Generation wird ein neuer Baum generiert
@@ -112,41 +80,27 @@ public class Life implements ILife {
   @Override
   public ILife nextGeneration() {
     Life result = new Life();
-    for (Cell c : livingCells) {
-      List<Cell> community = this.community(c);
-      for (Cell d : community) {
-        int neighborCount = countLivingNeighbors(d);
+    for (int y=0; y <= livingCells.size(); y++) {
+      for (int x = 0; x <= maxWidth; x++) {
+        int neighborCount = countLivingNeighbors(x, y);
         if (neighborCount == 3)
-          result.setAlive(d.x, d.y);
-        if (isAlive(d.x, d.y) && neighborCount == 2)
-          result.setAlive(d.x, d.y);
+          result.setAlive(x, y);
+        if (isAlive(x, y) && neighborCount == 2)
+          result.setAlive(x, y);
       }
     }
     return result;
   }
 
-  // Community -> Alle Nachbarn und die Zelle selbst
-  private List<Cell> community(Cell c) {
-    ArrayList<Cell> result = new ArrayList<>();
-    for (int x = c.x-1; x <= c.x+1; x++)
-      for (int y = c.y-1; y <= c.y+1; y++)
-        result.add(new Cell(x, y));
-    return result;
-  }
-
-  // Nachbarn -> Community ohne die Zelle selbst
-  private List<Cell> neighbors(Cell c) {
-    List<Cell> result = community(c);
-    result.remove(c);
-    return result;
-  }
-
   // Anzahl der lebenden Nachbarn
-  private int countLivingNeighbors(Cell c) {
+  private int countLivingNeighbors(int ox, int oy) {
     int result = 0;
-    for (Cell n : neighbors(c))
-      if (isAlive(n.x, n.y))
-        result++;
+    for (int x = ox-1; x <= ox+1; x++)
+      for (int y = oy-1; y <= oy+1; y++) {
+        if (x == ox && y == oy) continue;
+        if (isAlive(x, y))
+          result++;
+      }
     return result;
   }
 
